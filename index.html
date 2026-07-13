@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% block title %}تسجيل الحضور{% endblock %}
+{% block content %}
+<style>
+  .wizard-step { transition: all .35s cubic-bezier(.4,0,.2,1); }
+  #step2 { display: none; }
+  .email-avatar {
+    width: 56px; height: 56px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary), var(--blue));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.6rem; margin: 0 auto 14px; animation: pop .45s ease both;
+  }
+  .returning-info {
+    background: rgba(34,197,94,.08); border: 1px solid rgba(34,197,94,.3);
+    border-radius: 12px; padding: 14px; margin-bottom: 18px; text-align: center;
+  }
+  .returning-info strong { color: var(--success); display: block; font-size: 1.1rem; margin-bottom: 4px; }
+  .returning-info span { color: var(--text-muted); font-size: .85rem; }
+  .divider { display: flex; align-items: center; gap: 10px; margin: 18px 0; color: var(--text-muted); font-size: .8rem; }
+  .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+  .back-link { text-align: center; margin-top: 14px; }
+  .back-link a { color: var(--text-muted); font-size: .85rem; text-decoration: none; }
+  .back-link a:hover { color: var(--primary); }
+  .spinner { display: none; width: 20px; height: 20px; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; margin: 0 auto; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .btn-loading .btn-text { display: none; }
+  .btn-loading .spinner { display: inline-block; }
+</style>
+
+<main class="card">
+  {% if errors %}
+  <div class="alert alert-error">
+    <ul>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+  </div>
+  {% endif %}
+
+  {# ─── STEP 1: Email ─── #}
+  <div id="step1" class="wizard-step">
+    <h2>👋 مرحباً بك!</h2>
+    <p class="sub">أدخل بريدك الإلكتروني لتسجيل حضورك</p>
+
+    <div class="field">
+      <label for="emailInput">البريد الإلكتروني</label>
+      <input type="email" id="emailInput" name="email" required
+             inputmode="email" maxlength="255"
+             placeholder="example@email.com"
+             value="{{ email or '' }}" autocomplete="email">
+    </div>
+    <div id="emailError" class="alert alert-error" style="display:none;"></div>
+    <button type="button" id="checkEmailBtn" class="btn" onclick="checkEmail()">
+      <span class="btn-text">التالي ←</span>
+      <span class="spinner"></span>
+    </button>
+  </div>
+
+  {# ─── STEP 2A: Returning student (sign in) ─── #}
+  <div id="step2-signin" class="wizard-step" style="display:none;">
+    <div class="email-avatar">👤</div>
+    <div id="returningInfo" class="returning-info">
+      <strong id="returningName"></strong>
+      <span id="returningEmail"></span>
+    </div>
+    <form action="{{ url_for('submit') }}" method="POST" id="signinForm">
+      <input type="hidden" name="email" id="signinEmail">
+      <input type="hidden" name="mode" value="signin">
+      <button type="submit" class="btn">✅ تسجيل حضوري الآن</button>
+    </form>
+    <div class="back-link"><a href="#" onclick="goBack()">← تغيير البريد الإلكتروني</a></div>
+  </div>
+
+  {# ─── STEP 2B: New student (sign up) ─── #}
+  <div id="step2-signup" class="wizard-step" style="display:none;">
+    <h2>📝 إنشاء حساب جديد</h2>
+    <p class="sub">مرحباً! يبدو أنك جديد — أكمل بياناتك للتسجيل</p>
+    <form action="{{ url_for('submit') }}" method="POST" id="signupForm">
+      <input type="hidden" name="email" id="signupEmail">
+      <input type="hidden" name="mode" value="signup">
+
+      <div class="field">
+        <label for="name">اسم الطالب الكامل</label>
+        <input type="text" id="name" name="name" required
+               minlength="2" maxlength="100"
+               placeholder="مثال: أحمد محمد علي"
+               value="{{ name or '' }}">
+      </div>
+      <div class="field">
+        <label for="phone">رقم الهاتف</label>
+        <input type="tel" id="phone" name="phone" required
+               inputmode="tel"
+               placeholder="مثال: 0791234567"
+               value="{{ phone or '' }}">
+      </div>
+      <button type="submit" class="btn">🎓 تسجيل وتأكيد الحضور</button>
+    </form>
+    <div class="back-link"><a href="#" onclick="goBack()">← تغيير البريد الإلكتروني</a></div>
+  </div>
+</main>
+
+<script>
+  // If server returned errors with show_signup, fast-forward to step2-signup
+  {% if show_signup %}
+  window.addEventListener('DOMContentLoaded', () => {
+    const email = {{ (email or '')|tojson }};
+    showSignup(email);
+  });
+  {% endif %}
+
+  async function checkEmail() {
+    const emailInput = document.getElementById('emailInput');
+    const btn = document.getElementById('checkEmailBtn');
+    const errBox = document.getElementById('emailError');
+    const email = emailInput.value.trim();
+
+    if (!email || !email.includes('@')) {
+      showError(errBox, 'يرجى إدخال بريد إلكتروني صحيح');
+      return;
+    }
+
+    btn.classList.add('btn-loading');
+    errBox.style.display = 'none';
+
+    try {
+      const fd = new FormData();
+      fd.append('email', email);
+      const res = await fetch('/api/check_email', { method: 'POST', body: fd });
+      const data = await res.json();
+
+      if (data.error) {
+        showError(errBox, 'يرجى إدخال بريد إلكتروني صحيح');
+        return;
+      }
+
+      if (data.exists) {
+        showSignin(email, data.name);
+      } else {
+        showSignup(email);
+      }
+    } catch (e) {
+      showError(errBox, 'حدث خطأ في الاتصال، حاول مرة أخرى');
+    } finally {
+      btn.classList.remove('btn-loading');
+    }
+  }
+
+  function showSignin(email, name) {
+    document.getElementById('step1').style.display = 'none';
+    document.getElementById('step2-signup').style.display = 'none';
+    document.getElementById('returningName').textContent = 'أهلاً بعودتك، ' + name + '!';
+    document.getElementById('returningEmail').textContent = email;
+    document.getElementById('signinEmail').value = email;
+    const s = document.getElementById('step2-signin');
+    s.style.display = 'block';
+    s.style.animation = 'fadeUp .4s ease both';
+  }
+
+  function showSignup(email) {
+    document.getElementById('step1').style.display = 'none';
+    document.getElementById('step2-signin').style.display = 'none';
+    document.getElementById('signupEmail').value = email;
+    const s = document.getElementById('step2-signup');
+    s.style.display = 'block';
+    s.style.animation = 'fadeUp .4s ease both';
+  }
+
+  function goBack() {
+    document.getElementById('step2-signin').style.display = 'none';
+    document.getElementById('step2-signup').style.display = 'none';
+    document.getElementById('step1').style.display = 'block';
+    document.getElementById('step1').style.animation = 'fadeUp .3s ease both';
+  }
+
+  function showError(box, msg) {
+    box.textContent = msg;
+    box.style.display = 'block';
+  }
+
+  // Allow pressing Enter on email field
+  document.getElementById('emailInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); checkEmail(); }
+  });
+</script>
+{% endblock %}

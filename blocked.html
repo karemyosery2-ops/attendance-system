@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}تم التسجيل مسبقاً{% endblock %}
+{% block content %}
+<main class="card">
+  <div class="status">
+    <div class="icon icon-error">🚫</div>
+    <h2>عفواً، هذا الجهاز محظور مؤقتاً!</h2>
+    <p>
+      {{ reason or 'تم استخدام هذا الجهاز لتسجيل حضور بالفعل اليوم.' }}<br>
+      يُسمح بتسجيل واحد فقط لكل جهاز خلال نافذة الحظر المحددة.
+    </p>
+  </div>
+</main>
+{% endblock %}

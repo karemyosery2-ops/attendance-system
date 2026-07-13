@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}{{ quiz['title'] }}{% endblock %}
+{% block content %}
+<main class="card" style="width: min(720px, calc(100% - 32px));">
+  <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+    <h2>📝 {{ quiz['title'] }}</h2>
+    <a href="{{ url_for('dashboard') }}" style="color:var(--primary); font-weight:600; text-decoration:none;">← اللوحة</a>
+  </div>
+  <p class="sub">{{ questions|length }} سؤال • {% if quiz['is_mandatory'] %}إلزامي{% else %}اختياري{% endif %}</p>
+
+  {% if already %}
+    <div class="alert alert-error" style="background:rgba(59,130,246,.12); border-color:rgba(59,130,246,.4); color:#93c5fd;">
+      لقد أجبت على هذا الاختبار مسبقاً.
+      <a href="{{ url_for('student_quiz_result', qid=quiz['id']) }}" style="color:#93c5fd; font-weight:700;">عرض نتيجتك</a>
+    </div>
+  {% else %}
+  <form method="post">
+    {% for q in questions %}
+      <div style="background:#0d1526; border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:14px;">
+        <div style="font-weight:700; margin-bottom:10px;">{{ loop.index }}. {{ q['question_text'] }}
+          <span style="color:var(--text-muted); font-size:.75rem; font-weight:400;">({{ q['points'] }} نقطة)</span>
+        </div>
+        {% if q['type'] == 'MCQ' %}
+          {% for o in q['options'] %}
+            <label style="display:flex; align-items:center; gap:8px; padding:8px; border-radius:8px; cursor:pointer; color:var(--text);">
+              <input type="radio" name="q_{{ q['id'] }}" value="{{ o }}" required>
+              <span>{{ o }}</span>
+            </label>
+          {% endfor %}
+        {% else %}
+          <textarea name="q_{{ q['id'] }}" rows="4" placeholder="اكتب إجابتك هنا…"
+            style="width:100%; padding:12px; background:#0b1220; color:var(--text); border:1.5px solid var(--border); border-radius:10px;"></textarea>
+          <div style="color:var(--text-muted); font-size:.75rem; margin-top:4px;">سيتم تصحيح هذا السؤال يدوياً بواسطة المعلم.</div>
+        {% endif %}
+      </div>
+    {% else %}
+      <div style="color:var(--text-muted); text-align:center;">لا توجد أسئلة في هذا الاختبار.</div>
+    {% endfor %}
+    {% if questions %}
+      <button class="btn" onclick="return confirm('إرسال الإجابات؟ لا يمكن التعديل بعد الإرسال.');">إرسال الإجابات</button>
+    {% endif %}
+  </form>
+  {% endif %}
+</main>
+{% endblock %}

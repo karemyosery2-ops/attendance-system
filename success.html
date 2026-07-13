@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}تم التسجيل بنجاح{% endblock %}
+{% block content %}
+<main class="card">
+  <div class="status">
+    <div class="icon icon-success">✅</div>
+    <h2>تم تسجيل حضورك بنجاح!</h2>
+    <p>شكراً لك، تم حفظ بياناتك في سجل الحضور.<br>
+       نتمنى لك يوماً دراسياً موفقاً 🎓</p>
+       
+    <div style="margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border);">
+      {% if has_material %}
+        <a href="{{ url_for('static', filename='downloads/handout.pdf') }}" download="handout.pdf" class="btn" style="display:inline-block; text-decoration:none; margin-bottom:10px;">
+          ⬇️ تحميل الملزمة
+        </a>
+      {% else %}
+        <p style="color:var(--text-muted); font-size:0.9rem; margin-top:10px;">
+          لا توجد ملازم متاحة للتحميل حالياً
+        </p>
+      {% endif %}
+    </div>
+  </div>
+</main>
+{% endblock %}

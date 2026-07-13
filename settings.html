@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}الإعدادات — المعلم{% endblock %}
+{% block content %}
+<main class="card">
+  <h2>⚙️ إعدادات النظام</h2>
+  <p class="sub">تُخزَّن هذه القيم في قاعدة البيانات وتبقى بعد إعادة التشغيل.</p>
+
+  {% if saved %}
+    <div class="alert" style="background:rgba(34,197,94,.12); border:1px solid rgba(34,197,94,.4); color:#86efac;">
+      ✅ تم حفظ الإعدادات بنجاح.
+    </div>
+  {% endif %}
+  {% if error %}
+    <div class="alert alert-error"><ul><li>{{ error }}</li></ul></div>
+  {% endif %}
+
+  <form method="post" action="{{ url_for('admin_settings') }}">
+    <div class="field">
+      <label for="cooldown_hours">نافذة الحظر ضد الغش (بالساعات)</label>
+      <input type="number" id="cooldown_hours" name="cooldown_hours"
+             min="1" max="720" step="1" required
+             value="{{ cooldown_hours }}" placeholder="{{ default_hours }}">
+      <p style="color:var(--text-muted); font-size:.78rem; margin-top:8px; line-height:1.7;">
+        يمنع كل جهاز/IP من التسجيل أكثر من مرة خلال هذه المدة.
+        القيمة الافتراضية: <strong>{{ default_hours }}</strong> ساعة.
+        الحد المسموح: من 1 إلى 720 ساعة (30 يومًا).
+      </p>
+    </div>
+
+    <button type="submit" class="btn">حفظ الإعدادات</button>
+  </form>
+
+  <p style="margin-top:18px; text-align:center;">
+    <a href="{{ url_for('admin_list') }}" style="color:var(--primary); text-decoration:none; font-size:.9rem;">
+      ← العودة إلى لوحة التحكم
+    </a>
+  </p>
+</main>
+{% endblock %}

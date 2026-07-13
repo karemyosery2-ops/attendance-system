@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<!-- Developed by Karem Yousry -->
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}نظام تسجيل الحضور{% endblock %}</title>
+  <style>
+    /* ============ Design System — dark tech theme ============ */
+    :root {
+      --bg: #0b1220;
+      --bg-card: #111a2e;
+      --border: #22304d;
+      --primary: #ff7a29;        /* vibrant orange accent */
+      --primary-dark: #e5661a;
+      --blue: #3b82f6;
+      --text: #eaf0fa;
+      --text-muted: #8fa2c4;
+      --success: #22c55e;
+      --error: #ef4444;
+      --radius: 16px;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: "Segoe UI", Tahoma, "Cairo", Arial, sans-serif;
+      background:
+        radial-gradient(900px 500px at 80% -10%, rgba(59,130,246,.18), transparent 60%),
+        radial-gradient(700px 450px at 10% 110%, rgba(255,122,41,.12), transparent 60%),
+        var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    /* ============ Header ============ */
+    header {
+      width: 100%;
+      padding: 28px 16px 12px;
+      text-align: center;
+      animation: fadeDown .6s ease both;
+    }
+    .logo {
+      display: inline-flex; align-items: center; gap: 10px;
+      font-size: 1.35rem; font-weight: 800; letter-spacing: .5px;
+    }
+    .logo .dot { color: var(--primary); }
+    header p { color: var(--text-muted); margin-top: 6px; font-size: .9rem; }
+
+    /* ============ Card ============ */
+    .card {
+      width: min(440px, calc(100% - 32px));
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 24px;
+      margin: 18px 0 40px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.45);
+      animation: fadeUp .6s .1s ease both;
+    }
+    .card h2 { font-size: 1.15rem; margin-bottom: 4px; }
+    .card .sub { color: var(--text-muted); font-size: .85rem; margin-bottom: 22px; }
+
+    /* ============ Form fields ============ */
+    .field { margin-bottom: 18px; }
+    .field label {
+      display: block; font-size: .85rem; font-weight: 600;
+      margin-bottom: 8px; color: var(--text);
+    }
+    .field input {
+      width: 100%; padding: 13px 14px;
+      background: #0d1526;
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      color: var(--text);
+      font-size: 1rem;
+      transition: border-color .25s, box-shadow .25s;
+    }
+    .field input::placeholder { color: #5d6f92; }
+    .field input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(255,122,41,.18);
+    }
+    .field input:valid:not(:placeholder-shown) { border-color: rgba(34,197,94,.55); }
+
+    /* ============ Button ============ */
+    .btn {
+      width: 100%; padding: 14px;
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      color: #fff; font-size: 1.05rem; font-weight: 700;
+      border: none; border-radius: 12px; cursor: pointer;
+      transition: transform .15s, box-shadow .25s, filter .2s;
+      box-shadow: 0 8px 24px rgba(255,122,41,.3);
+    }
+    .btn:hover { filter: brightness(1.08); box-shadow: 0 10px 30px rgba(255,122,41,.4); }
+    .btn:active { transform: scale(.98); }
+
+    /* ============ Alerts ============ */
+    .alert {
+      padding: 12px 14px; border-radius: 12px;
+      font-size: .88rem; margin-bottom: 18px;
+      animation: fadeUp .4s ease both;
+    }
+    .alert-error {
+      background: rgba(239,68,68,.12);
+      border: 1px solid rgba(239,68,68,.4);
+      color: #fda4a4;
+    }
+    .alert-error ul { margin: 0; padding-right: 18px; }
+
+    /* ============ Status screens (success / blocked) ============ */
+    .status { text-align: center; padding: 12px 0; }
+    .status .icon {
+      width: 86px; height: 86px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 20px; font-size: 2.4rem;
+      animation: pop .5s cubic-bezier(.2,1.6,.4,1) both;
+    }
+    .icon-success { background: rgba(34,197,94,.15); border: 2px solid var(--success); }
+    .icon-error   { background: rgba(239,68,68,.15); border: 2px solid var(--error); }
+    .status h2 { font-size: 1.3rem; margin-bottom: 10px; }
+    .status p  { color: var(--text-muted); font-size: .92rem; line-height: 1.7; }
+
+    footer {
+      margin-top: auto; padding: 16px; color: #4d5f82;
+      font-size: .75rem; text-align: center;
+    }
+
+    /* ============ Animations ============ */
+    @keyframes fadeUp   { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+    @keyframes fadeDown { from { opacity: 0; transform: translateY(-50px); } to { opacity: 1; transform: none; } }
+    @keyframes pop      { from { opacity: 0; transform: scale(7.5); } to { opacity: 1; transform: scale(2); } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">📚 نظام الحضور <span class="dot">•</span> البرمجة مع م/كريم يسري</div>
+    <p>الصف الثاني بكالوريا</p>
+  </header>
+
+  {% block content %}{% endblock %}
+
+  <footer>
+     <button class="alert btn">This Website Runs Without Internet</button> <br>
+    <span style="opacity:0.7; font-size:0.7rem; margin-top:4px; display:inline-block;">Developed by Karem Yousry</span>
+  </footer>
+</body>
+</html>

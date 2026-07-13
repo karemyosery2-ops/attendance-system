@@ -1,0 +1,487 @@
+{% extends "base.html" %}
+{% block title %}سجل الحضور — المعلم{% endblock %}
+{% block content %}
+<main class="card" style="width: min(880px, calc(100% - 32px));">
+<style>
+  .modal-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+    display: none; align-items: center; justify-content: center; z-index: 1000;
+    opacity: 0; transition: opacity 0.2s ease;
+  }
+  .modal-overlay.show { display: flex; opacity: 1; }
+  .modal-content { margin: 0; transform: scale(0.95); transition: transform 0.2s ease; }
+  .modal-overlay.show .modal-content { transform: scale(1); }
+  .student-row { transition: opacity 0.2s; }
+</style>
+
+  <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+    <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+      <h2>📋 لوحة تحكم المعلم</h2>
+      <button id="addManualBtn" style="padding:6px 12px; background:linear-gradient(135deg, var(--success), #16a34a); border:none; border-radius:8px; color:#fff; cursor:pointer; font-weight:600; font-size:0.85rem;">📝 تسجيل طالب يدوياً</button>
+      <button id="resetAllBtn" style="padding:6px 12px; background:linear-gradient(135deg, var(--error), #dc2626); border:none; border-radius:8px; color:#fff; cursor:pointer; font-weight:600; font-size:0.85rem;">تصفير جميع الأجهزة</button>
+    </div>
+    <div style="display:flex; gap:14px; align-items:center; flex-wrap:wrap;">
+      <a href="{{ url_for('admin_quizzes') }}" style="color:var(--primary); text-decoration:none; font-size:.9rem; font-weight:600;">📝 الاختبارات</a>
+      <a href="{{ url_for('admin_students') }}" style="color:var(--primary); text-decoration:none; font-size:.9rem; font-weight:600;">👥 كل الطلاب</a>
+      <a href="{{ url_for('admin_ips_list') }}" style="color:var(--primary); text-decoration:none; font-size:.9rem; font-weight:600;">🔐 صلاحيات الوصول</a>
+      <a href="{{ url_for('admin_settings') }}" style="color:var(--primary); text-decoration:none; font-size:.9rem; font-weight:600;">⚙️ الإعدادات</a>
+    </div>
+  </div>
+  <p class="sub">نافذة الحظر الحالية: {{ cooldown_hours }} ساعة</p>
+
+  {# ---------- Daily summary ---------- #}
+  <section style="display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+                  gap:12px; margin: 6px 0 22px;">
+    <div style="background:#0d1526; border:1px solid var(--border); border-radius:12px; padding:14px;">
+      <div style="color:var(--text-muted); font-size:.75rem;">إجمالي التسجيلات اليوم</div>
+      <div style="font-size:1.8rem; font-weight:800; color:var(--primary);">{{ summary.total }}</div>
+      <div style="color:var(--text-muted); font-size:.7rem;" dir="ltr">{{ summary.date }}</div>
+    </div>
+    <div style="background:#0d1526; border:1px solid var(--border); border-radius:12px; padding:14px;">
+      <div style="color:var(--text-muted); font-size:.75rem;">أجهزة فريدة اليوم</div>
+      <div style="font-size:1.8rem; font-weight:800; color:var(--blue);">{{ summary.unique_devices }}</div>
+      <div style="color:var(--text-muted); font-size:.7rem;">حسب عنوان IP</div>
+    </div>
+    <div style="background:#0d1526; border:1px solid var(--border); border-radius:12px; padding:14px;">
+      <div style="color:var(--text-muted); font-size:.75rem;">آخر تسجيل اليوم</div>
+      <div style="font-size:1rem; font-weight:700;" dir="ltr">{{ summary.last_today }}</div>
+    </div>
+    <div style="background:#0d1526; border:1px solid var(--border); border-radius:12px; padding:14px;">
+      <div style="color:var(--text-muted); font-size:.75rem;">آخر تسجيل (كل الأيام)</div>
+      <div style="font-size:1rem; font-weight:700;" dir="ltr">{{ summary.last_overall }}</div>
+    </div>
+  </section>
+
+  {# ---------- Material Management ---------- #}
+  <section style="background:#0d1526; border:1px solid var(--border); border-radius:12px;
+                  padding:14px; margin-bottom:22px;">
+    <h3 style="font-size:1rem; margin-bottom:10px;">📁 إدارة الملازم (Material Management)</h3>
+    <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+      <form action="{{ url_for('admin_upload_material') }}" method="post" enctype="multipart/form-data" style="display:flex; gap:10px; align-items:center; flex:1;">
+        <input type="file" name="file" accept=".pdf" style="flex:1; padding:8px; background:#0b1220; border:1.5px solid var(--border); border-radius:10px; color:var(--text);" required>
+        <button type="submit" class="btn" style="width:auto; padding:9px 16px;">رفع ملزمة</button>
+      </form>
+      {% if has_material %}
+      <form action="{{ url_for('admin_delete_material') }}" method="post" onsubmit="return confirm('هل أنت متأكد من حذف الملزمة الحالية؟');">
+        <input type="hidden" name="filename" value="handout.pdf">
+        <button type="submit" class="btn" style="width:auto; padding:9px 16px; background:linear-gradient(135deg, var(--error), #dc2626); box-shadow:none;">حذف الملزمة الحالية</button>
+      </form>
+      {% endif %}
+    </div>
+  </section>
+
+  {# ---------- CSV export ---------- #}
+  <section style="background:#0d1526; border:1px solid var(--border); border-radius:12px;
+                  padding:14px; margin-bottom:22px;">
+    <h3 style="font-size:1rem; margin-bottom:10px;">⬇️ تصدير CSV حسب نطاق التاريخ</h3>
+    <form action="{{ url_for('admin_export_csv') }}" method="get"
+          style="display:flex; gap:10px; flex-wrap:wrap; align-items:end;">
+      <div style="flex:1; min-width:150px;">
+        <label style="font-size:.8rem; color:var(--text-muted); display:block; margin-bottom:6px;">من</label>
+        <input type="date" name="from" value="{{ default_from }}"
+               style="width:100%; padding:10px; background:#0b1220; border:1.5px solid var(--border);
+                      border-radius:10px; color:var(--text);">
+      </div>
+      <div style="flex:1; min-width:150px;">
+        <label style="font-size:.8rem; color:var(--text-muted); display:block; margin-bottom:6px;">إلى</label>
+        <input type="date" name="to" value="{{ default_to }}"
+               style="width:100%; padding:10px; background:#0b1220; border:1.5px solid var(--border);
+                      border-radius:10px; color:var(--text);">
+      </div>
+      <button type="submit" class="btn" style="width:auto; padding:10px 18px;">تنزيل CSV</button>
+    </form>
+  </section>
+
+  {# ---------- Records list: filter + pagination ---------- #}
+  <h3 style="font-size:1rem; margin-bottom:8px;">
+    السجل ({{ total_filtered }}{% if filter_from or filter_to %} — بعد التصفية{% endif %})
+  </h3>
+
+  <div style="margin-bottom:16px;">
+    <input type="text" id="searchInput" placeholder="ابحث بالاسم، الهاتف، أو البريد الإلكتروني..." 
+           style="width:100%; padding:10px; background:#0b1220; border:1.5px solid var(--border);
+                  border-radius:10px; color:var(--text); font-size:1rem;">
+  </div>
+
+  <form method="get" action="{{ url_for('admin_list') }}"
+        style="display:flex; gap:10px; flex-wrap:wrap; align-items:end;
+               background:#0d1526; border:1px solid var(--border); border-radius:12px;
+               padding:12px; margin-bottom:12px;">
+    <div style="flex:1; min-width:140px;">
+      <label style="font-size:.75rem; color:var(--text-muted); display:block; margin-bottom:4px;">من</label>
+      <input type="date" name="from" value="{{ filter_from }}"
+             style="width:100%; padding:8px; background:#0b1220; border:1.5px solid var(--border);
+                    border-radius:10px; color:var(--text);">
+    </div>
+    <div style="flex:1; min-width:140px;">
+      <label style="font-size:.75rem; color:var(--text-muted); display:block; margin-bottom:4px;">إلى</label>
+      <input type="date" name="to" value="{{ filter_to }}"
+             style="width:100%; padding:8px; background:#0b1220; border:1.5px solid var(--border);
+                    border-radius:10px; color:var(--text);">
+    </div>
+    <div style="min-width:100px;">
+      <label style="font-size:.75rem; color:var(--text-muted); display:block; margin-bottom:4px;">لكل صفحة</label>
+      <select name="per_page"
+              style="width:100%; padding:8px; background:#0b1220; border:1.5px solid var(--border);
+                     border-radius:10px; color:var(--text);">
+        {% for n in [10, 25, 50, 100, 200] %}
+          <option value="{{ n }}" {% if n == per_page %}selected{% endif %}>{{ n }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn" style="width:auto; padding:9px 16px;">تصفية</button>
+    {% if filter_from or filter_to %}
+      <a href="{{ url_for('admin_list') }}"
+         style="color:var(--text-muted); text-decoration:none; font-size:.85rem; padding:9px 4px;">
+         إعادة ضبط
+      </a>
+    {% endif %}
+  </form>
+
+  {% if date_error %}
+    <div class="alert alert-error"><ul><li>{{ date_error }}</li></ul></div>
+  {% endif %}
+
+  <div style="overflow-x:auto;">
+    <table style="width:100%; border-collapse:collapse; font-size:.85rem;">
+      <thead>
+        <tr style="color:var(--text-muted); text-align:right;">
+          <th style="padding:8px;">#</th>
+          <th style="padding:8px;">الاسم</th>
+          <th style="padding:8px;">الهاتف</th>
+          <th style="padding:8px;">البريد</th>
+          <th style="padding:8px; text-align:center;">مرات الحضور</th>
+          <th style="padding:8px;">IP</th>
+          <th style="padding:8px;">MAC</th>
+          <th style="padding:8px;">آخر حضور</th>
+          <th style="padding:8px; text-align:center;">إجراءات</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr class="student-row" style="border-top:1px solid var(--border);">
+          <td style="padding:8px;">{{ r['id'] }}</td>
+          <td style="padding:8px;">{{ r['name'] }}</td>
+          <td style="padding:8px;" dir="ltr">{{ r['phone'] }}</td>
+          <td style="padding:8px;" dir="ltr">{{ r['email'] }}</td>
+          <td style="padding:8px; text-align:center;">
+            <span style="background:rgba(255,122,41,.15); color:var(--primary); border:1px solid rgba(255,122,41,.3); padding:3px 10px; border-radius:99px; font-size:.8rem; font-weight:700;">{{ r['attendance_count'] }}</span>
+          </td>
+          <td style="padding:8px;" dir="ltr">{{ r['ip_address'] }}</td>
+          <td style="padding:8px;" dir="ltr">{{ r['mac_address'] }}</td>
+          <td style="padding:8px;" dir="ltr">{{ r['submission_time'] }}</td>
+          <td style="padding:8px; text-align:center;">
+            <button class="edit-btn" data-id="{{ r['id'] }}" data-name="{{ r['name'] }}" data-phone="{{ r['phone'] }}" data-email="{{ r['email'] }}"
+                    style="padding:4px 8px; border:none; border-radius:6px; background:var(--blue); color:#fff; cursor:pointer; margin-left:4px;">تعديل</button>
+            <button class="reset-ip-btn" data-id="{{ r['id'] }}"
+                    style="padding:4px 8px; border:none; border-radius:6px; background:var(--primary); color:#fff; cursor:pointer; margin-left:4px;">تصفير</button>
+            <button class="delete-btn" data-id="{{ r['id'] }}"
+                    style="padding:4px 8px; border:none; border-radius:6px; background:var(--error); color:#fff; cursor:pointer;">حذف</button>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="9" style="padding:20px; text-align:center; color:var(--text-muted);">
+          لا توجد سجلات مطابقة.
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {# ---------- Pagination controls ---------- #}
+  {% if total_pages > 1 %}
+  {% set base = {'from': filter_from, 'to': filter_to, 'per_page': per_page} %}
+  <nav style="display:flex; justify-content:space-between; align-items:center;
+              gap:8px; margin-top:14px; flex-wrap:wrap;">
+    <div style="color:var(--text-muted); font-size:.8rem;">
+      صفحة {{ page }} من {{ total_pages }}
+    </div>
+    <div style="display:flex; gap:6px;">
+      {% if page > 1 %}
+        <a href="{{ url_for('admin_list', page=1, **base) }}"
+           style="padding:6px 10px; border:1px solid var(--border); border-radius:8px;
+                  color:var(--text); text-decoration:none;">« الأولى</a>
+        <a href="{{ url_for('admin_list', page=page-1, **base) }}"
+           style="padding:6px 10px; border:1px solid var(--border); border-radius:8px;
+                  color:var(--text); text-decoration:none;">‹ السابقة</a>
+      {% endif %}
+      {% if page < total_pages %}
+        <a href="{{ url_for('admin_list', page=page+1, **base) }}"
+           style="padding:6px 10px; border:1px solid var(--border); border-radius:8px;
+                  color:var(--text); text-decoration:none;">التالية ›</a>
+        <a href="{{ url_for('admin_list', page=total_pages, **base) }}"
+           style="padding:6px 10px; border:1px solid var(--border); border-radius:8px;
+                  color:var(--text); text-decoration:none;">الأخيرة »</a>
+      {% endif %}
+    </div>
+  </nav>
+  {% endif %}
+
+  {# ---------- Audit log preview ---------- #}
+  <section style="margin-top:26px;">
+    <h3 style="font-size:1rem; margin-bottom:8px;">🛡️ سجل التدقيق (آخر 10)</h3>
+    <div style="overflow-x:auto; background:#0d1526; border:1px solid var(--border);
+                border-radius:12px;">
+      <table style="width:100%; border-collapse:collapse; font-size:.8rem;">
+        <thead>
+          <tr style="color:var(--text-muted); text-align:right;">
+            <th style="padding:8px;">الوقت</th>
+            <th style="padding:8px;">الإجراء</th>
+            <th style="padding:8px;">التفاصيل</th>
+            <th style="padding:8px;">IP</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for a in audit_rows %}
+          <tr style="border-top:1px solid var(--border);">
+            <td style="padding:8px;" dir="ltr">{{ a['ts'] }}</td>
+            <td style="padding:8px;" dir="ltr">
+              {% if a['action'] == 'export_csv' %}⬇️ export_csv
+              {% elif a['action'] == 'settings_change' %}⚙️ settings_change
+              {% elif a['action'] == 'manual_register' %}📝 manual_register
+              {% else %}{{ a['action'] }}{% endif %}
+            </td>
+            <td style="padding:8px;" dir="ltr">{{ a['details'] }}</td>
+            <td style="padding:8px;" dir="ltr">{{ a['ip_address'] }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4" style="padding:16px; text-align:center; color:var(--text-muted);">
+            لا توجد سجلات تدقيق بعد.
+          </td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  {# ---------- Add Manual Student Modal ---------- #}
+  <div id="addManualModal" class="modal-overlay">
+    <div class="modal-content card">
+      <h3 style="margin-bottom:16px;">📝 تسجيل طالب يدوياً</h3>
+      <p style="color:var(--text-muted); font-size:.8rem; margin-bottom:14px;">
+        يتم تجاوز جميع قيود الحظر (IP/MAC/اليوم) عند التسجيل اليدوي.
+      </p>
+      <div id="manualAlert" class="alert alert-error" style="display:none;"></div>
+      <form id="addManualForm">
+        <div class="field">
+          <label>اسم الطالب الكامل</label>
+          <input type="text" id="manualName" required minlength="2" maxlength="100" placeholder="مثال: أحمد محمد علي">
+        </div>
+        <div class="field">
+          <label>رقم الهاتف</label>
+          <input type="tel" id="manualPhone" required placeholder="مثال: 0791234567">
+        </div>
+        <div class="field">
+          <label>البريد الإلكتروني</label>
+          <input type="email" id="manualEmail" required placeholder="example@email.com">
+        </div>
+        <div style="display:flex; gap:10px; margin-top:20px;">
+          <button type="submit" class="btn" style="flex:1;">تسجيل الحضور الآن</button>
+          <button type="button" class="btn" onclick="closeManualModal()" style="flex:1; background:#475569; box-shadow:none;">إلغاء</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {# ---------- Edit Modal ---------- #}
+  <div id="editModal" class="modal-overlay">
+    <div class="modal-content card">
+      <h3 style="margin-bottom:16px;">تعديل بيانات الطالب</h3>
+      <div id="modalAlert" class="alert alert-error" style="display:none;"></div>
+      <form id="editForm">
+        <input type="hidden" id="editId">
+        <div class="field">
+          <label>الاسم</label>
+          <input type="text" id="editName" required>
+        </div>
+        <div class="field">
+          <label>الهاتف</label>
+          <input type="text" id="editPhone" required>
+        </div>
+        <div class="field">
+          <label>البريد الإلكتروني</label>
+          <input type="email" id="editEmail" required>
+        </div>
+        <div style="display:flex; gap:10px; margin-top:20px;">
+          <button type="submit" class="btn" style="flex:1;">حفظ</button>
+          <button type="button" class="btn" onclick="closeModal()" style="flex:1; background:#475569; box-shadow:none;">إلغاء</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</main>
+
+<script>
+  // Search Filter
+  document.getElementById('searchInput').addEventListener('input', function(e) {
+    const term = e.target.value.toLowerCase();
+    const rows = document.querySelectorAll('.student-row');
+    rows.forEach(row => {
+      const text = row.innerText.toLowerCase();
+      row.style.display = text.includes(term) ? '' : 'none';
+    });
+  });
+
+  // ─── Manual Add Modal logic ───
+  const manualModal = document.getElementById('addManualModal');
+  const manualAlert = document.getElementById('manualAlert');
+
+  function closeManualModal() {
+    manualModal.classList.remove('show');
+    setTimeout(() => { manualModal.style.display = 'none'; }, 200);
+  }
+
+  document.getElementById('addManualBtn').addEventListener('click', () => {
+    manualAlert.style.display = 'none';
+    document.getElementById('addManualForm').reset();
+    manualModal.style.display = 'flex';
+    manualModal.offsetHeight; // Force reflow
+    manualModal.classList.add('show');
+  });
+
+  document.getElementById('addManualForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new URLSearchParams();
+    formData.append('name', document.getElementById('manualName').value.trim());
+    formData.append('phone', document.getElementById('manualPhone').value.trim());
+    formData.append('email', document.getElementById('manualEmail').value.trim().toLowerCase());
+
+    try {
+      const res = await fetch('/admin/student/add_manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: formData.toString()
+      });
+      const data = await res.json();
+      if(data.success) {
+        const msg = 'تم تسجيل الطالب بنجاح!' + (data.is_new ? ' (حساب جديد)' : ' (حساب موجود)');
+        alert(msg);
+        closeManualModal();
+        document.getElementById('addManualForm').reset();
+        location.reload();
+      } else {
+        manualAlert.innerHTML = data.errors ? data.errors.map(err => '• ' + err).join('<br>') : (data.error || 'فشل التسجيل');
+        manualAlert.style.display = 'block';
+      }
+    } catch(err) {
+      manualAlert.innerText = 'حدث خطأ في الاتصال';
+      manualAlert.style.display = 'block';
+    }
+  });
+
+  // ─── Edit Modal logic ───
+  const modal = document.getElementById('editModal');
+  const alertBox = document.getElementById('modalAlert');
+  
+  function closeModal() {
+    modal.classList.remove('show');
+    setTimeout(() => { modal.style.display = 'none'; }, 200);
+  }
+
+  document.querySelectorAll('.edit-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.getElementById('editId').value = btn.dataset.id;
+      document.getElementById('editName').value = btn.dataset.name;
+      document.getElementById('editPhone').value = btn.dataset.phone;
+      document.getElementById('editEmail').value = btn.dataset.email;
+      alertBox.style.display = 'none';
+      modal.style.display = 'flex';
+      modal.offsetHeight; // Force reflow
+      modal.classList.add('show');
+    });
+  });
+
+  document.querySelectorAll('.delete-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if(!confirm('هل أنت متأكد من حذف هذا الطالب؟')) return;
+      const id = btn.dataset.id;
+      try {
+        const res = await fetch(`/admin/student/${id}/delete`, { method: 'POST' });
+        const data = await res.json();
+        if(data.success) {
+          btn.closest('tr').remove();
+        } else {
+          alert('فشل الحذف: ' + (data.error || 'خطأ غير معروف'));
+        }
+      } catch (err) {
+        alert('حدث خطأ في الاتصال');
+      }
+    });
+  });
+
+  document.querySelectorAll('.reset-ip-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if(!confirm('هل أنت متأكد من مسح قيود IP و MAC لهذا الطالب؟')) return;
+      const id = btn.dataset.id;
+      try {
+        const res = await fetch(`/admin/student/${id}/reset_ip`, { method: 'POST' });
+        const data = await res.json();
+        if(data.success) {
+          const row = btn.closest('tr');
+          row.children[4].innerText = ''; // IP
+          row.children[5].innerText = ''; // MAC
+          alert('تم التصفير بنجاح');
+        } else {
+          alert('فشل التصفير: ' + (data.error || 'خطأ غير معروف'));
+        }
+      } catch (err) {
+        alert('حدث خطأ في الاتصال');
+      }
+    });
+  });
+
+  document.getElementById('resetAllBtn').addEventListener('click', async () => {
+    if(!confirm('هل أنت متأكد من مسح جميع قيود الأجهزة (IP و MAC) لجميع الطلاب؟')) return;
+    try {
+      const res = await fetch(`/admin/reset_all`, { method: 'POST' });
+      const data = await res.json();
+      if(data.success) {
+        alert('تم تصفير جميع الأجهزة بنجاح!');
+        location.reload();
+      } else {
+        alert('فشل التصفير: ' + (data.error || 'خطأ غير معروف'));
+      }
+    } catch (err) {
+      alert('حدث خطأ في الاتصال');
+    }
+  });
+
+  document.getElementById('editForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('editId').value;
+    const formData = new URLSearchParams();
+    formData.append('name', document.getElementById('editName').value);
+    formData.append('phone', document.getElementById('editPhone').value);
+    formData.append('email', document.getElementById('editEmail').value);
+
+    try {
+      const res = await fetch(`/admin/student/${id}/edit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: formData.toString()
+      });
+      const data = await res.json();
+      if(data.success) {
+        const row = document.querySelector(`.edit-btn[data-id="${id}"]`).closest('tr');
+        row.children[1].innerText = document.getElementById('editName').value;
+        row.children[2].innerText = document.getElementById('editPhone').value;
+        row.children[3].innerText = document.getElementById('editEmail').value;
+        
+        const btn = document.querySelector(`.edit-btn[data-id="${id}"]`);
+        btn.dataset.name = document.getElementById('editName').value;
+        btn.dataset.phone = document.getElementById('editPhone').value;
+        btn.dataset.email = document.getElementById('editEmail').value;
+        
+        closeModal();
+      } else {
+        alertBox.innerText = data.error || 'فشل التعديل';
+        alertBox.style.display = 'block';
+      }
+    } catch(err) {
+      alertBox.innerText = 'حدث خطأ في الاتصال';
+      alertBox.style.display = 'block';
+    }
+  });
+</script>
+{% endblock %}

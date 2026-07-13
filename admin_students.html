@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block title %}كل الطلاب — المعلم{% endblock %}
+{% block content %}
+<main class="card" style="width: min(1100px, calc(100% - 32px));">
+  <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+    <h2>👥 السجل الرئيسي للطلاب</h2>
+    <a href="{{ url_for('admin_list') }}" style="color:var(--primary); font-weight:600; text-decoration:none;">← رجوع</a>
+  </div>
+  <p class="sub">{{ rows|length }} طالب — يظهر مجموع الحضور ودرجات كل الاختبارات والملاحظات الخاصة.</p>
+
+  <div style="display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap;">
+    <a href="{{ url_for('admin_students') }}" style="padding:6px 12px; border-radius:99px; border:1px solid var(--border); text-decoration:none; color:{% if not filter_mode %}var(--primary){% else %}var(--text-muted){% endif %}; font-weight:600; font-size:.85rem;">الكل</a>
+    <a href="{{ url_for('admin_students', filter='attended_no_quiz') }}" style="padding:6px 12px; border-radius:99px; border:1px solid var(--border); text-decoration:none; color:{% if filter_mode == 'attended_no_quiz' %}var(--primary){% else %}var(--text-muted){% endif %}; font-weight:600; font-size:.85rem;">حضروا اليوم ولم يؤدوا اختباراً</a>
+  </div>
+
+  <div style="overflow-x:auto;">
+    <table style="width:100%; border-collapse:collapse; font-size:.85rem;">
+      <thead>
+        <tr style="color:var(--text-muted); text-align:right; border-bottom:1px solid var(--border);">
+          <th style="padding:10px;">الاسم</th>
+          <th style="padding:10px;">الحضور</th>
+          {% for q in quizzes %}
+            <th style="padding:10px; white-space:nowrap;">{{ q['title'][:14] }}</th>
+          {% endfor %}
+          <th style="padding:10px;">ملاحظة خاصة</th>
+          <th style="padding:10px;"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:10px;">
+            <div style="font-weight:600;">{{ r['user']['name'] }}</div>
+            <div style="color:var(--text-muted); font-size:.75rem;" dir="ltr">{{ r['user']['email'] }}</div>
+          </td>
+          <td style="padding:10px; font-weight:700; color:var(--primary);">{{ r['user']['attendance_count'] }}</td>
+          {% for q in quizzes %}
+            <td style="padding:10px;">
+              {% if r['scores'].get(q['id']) is not none %}
+                <span class="log-badge">{{ r['scores'][q['id']] }}</span>
+              {% else %}
+                <span style="color:var(--text-muted);">—</span>
+              {% endif %}
+            </td>
+          {% endfor %}
+          <td style="padding:10px; color:#ffb347; font-size:.8rem; max-width:180px;">
+            {{ (r['user']['private_admin_mark'] or '')[:60] }}
+          </td>
+          <td style="padding:10px;">
+            <button onclick="openProfile({{ r['user']['id'] }})"
+              style="padding:5px 10px; background:var(--blue); color:#fff; border:none; border-radius:8px; cursor:pointer; font-size:.8rem;">👁️ فتح</button>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="99" style="padding:24px; text-align:center; color:var(--text-muted);">لا يوجد طلاب مطابقون</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</main>
+
+<div id="profileModal" style="position:fixed; inset:0; background:rgba(0,0,0,.7); backdrop-filter:blur(4px); display:none; align-items:flex-start; justify-content:center; z-index:1000; overflow-y:auto; padding:40px 12px;">
+  <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:16px; padding:24px; max-width:720px; width:100%; max-height:90vh; overflow-y:auto;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+      <h3 id="pmName" style="margin:0;">—</h3>
+      <button onclick="closeProfile()" style="background:none; border:none; color:var(--text); font-size:1.6rem; cursor:pointer;">×</button>
+    </div>
+    <div id="pmBody" style="color:var(--text);"></div>
+  </div>
+</div>
+
+<script>
+  let currentUser = null;
+
+  async function openProfile(uid) {
+    currentUser = uid;
+    const modal = document.getElementById('profileModal');
+    modal.style.display = 'flex';
+    document.getElementById('pmBody').innerHTML = '<div style="text-align:center; color:var(--text-muted); padding:20px;">جارٍ التحميل…</div>';
+    const res = await fetch(`/admin/student/${uid}/profile`);
+    const data = await res.json();
+    document.getElementById('pmName').textContent = data.user.name;
+    render(data);
+  }
+
+  function closeProfile() {
+    document.getElementById('profileModal').style.display = 'none';
+  }
+
+  function esc(s) { return (s || '').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  function render(data) {
+    const u = data.user;
+    let html = `
+      <div style="background:#0d1526; padding:12px; border-radius:10px; margin-bottom:14px;">
+        <div style="color:var(--text-muted); font-size:.8rem;">${esc(u.email)} • ${esc(u.phone)}</div>
+        <div style="margin-top:10px;">
+          <label style="font-size:.8rem; color:var(--text-muted);">🔒 ملاحظة خاصة (لا يراها الطالب أبداً):</label>
+          <textarea id="markBox" rows="2" style="width:100%; margin-top:6px; padding:10px; background:#0b1220; color:#ffb347; border:1px solid var(--border); border-radius:8px;">${esc(u.private_admin_mark)}</textarea>
+          <div style="display:flex; gap:8px; margin-top:6px;">
+            <button onclick="saveMark()" style="padding:6px 12px; background:var(--primary); color:#fff; border:none; border-radius:8px; cursor:pointer;">💾 حفظ</button>
+            <button onclick="clearMark()" style="padding:6px 12px; background:var(--error); color:#fff; border:none; border-radius:8px; cursor:pointer;">مسح</button>
+          </div>
+        </div>
+      </div>
+    `;
+    if (!data.attempts.length) {
+      html += '<div style="color:var(--text-muted); text-align:center; padding:20px;">لم يؤدِ الطالب أي اختبار بعد.</div>';
+    }
+    for (const a of data.attempts) {
+      html += `
+        <div style="background:#0d1526; padding:12px; border-radius:10px; margin-bottom:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+            <div>
+              <div style="font-weight:700;">${esc(a.title)}</div>
+              <div style="color:var(--text-muted); font-size:.75rem;">${esc(a.submitted_at)}</div>
+            </div>
+            <div style="display:flex; gap:6px; align-items:center;">
+              <span style="color:var(--text-muted); font-size:.8rem;">الدرجة:</span>
+              <input type="number" id="tot_${a.attempt_id}" value="${a.total_score}" style="width:70px; padding:5px 8px; background:#0b1220; color:var(--text); border:1px solid var(--border); border-radius:6px; text-align:center;">
+              <button onclick="overrideScore(${a.attempt_id})" style="padding:5px 10px; background:var(--blue); color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:.75rem;">حفظ</button>
+            </div>
+          </div>
+      `;
+      for (const ans of a.answers) {
+        const isEssay = ans.type === 'Essay';
+        html += `
+          <div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--border);">
+            <div style="font-weight:600; font-size:.85rem;">${esc(ans.question_text)}
+              <span style="color:var(--text-muted); font-weight:400; font-size:.75rem;">(${ans.type} — ${ans.points} نقطة)</span>
+            </div>
+            <div style="color:${isEssay ? '#93c5fd' : (ans.answer_text === ans.correct_answer ? 'var(--success)' : '#fda4a4')}; margin-top:4px; font-size:.85rem;">
+              إجابة الطالب: ${esc(ans.answer_text) || '<i>(فارغ)</i>'}
+            </div>
+            ${!isEssay ? `<div style="color:var(--text-muted); font-size:.75rem;">الإجابة الصحيحة: ${esc(ans.correct_answer)}</div>` : ''}
+            ${isEssay ? `
+              <div style="display:flex; gap:6px; margin-top:6px; align-items:center;">
+                <span style="font-size:.8rem; color:var(--text-muted);">درجة يدوية:</span>
+                <input type="number" id="ans_${ans.id}" value="${ans.score}" min="0" max="${ans.points}" style="width:60px; padding:4px 6px; background:#0b1220; color:var(--text); border:1px solid var(--border); border-radius:6px; text-align:center;">
+                <button onclick="gradeEssay(${ans.id}, ${a.attempt_id})" style="padding:4px 10px; background:var(--primary); color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:.75rem;">حفظ</button>
+              </div>
+            ` : `<div style="color:var(--text-muted); font-size:.75rem;">درجة تلقائية: ${ans.score}</div>`}
+          </div>
+        `;
+      }
+      html += '</div>';
+    }
+    document.getElementById('pmBody').innerHTML = html;
+  }
+
+  async function saveMark() {
+    const mark = document.getElementById('markBox').value;
+    const fd = new FormData(); fd.append('mark', mark);
+    await fetch(`/admin/student/${currentUser}/set_mark`, {method:'POST', body: fd});
+    alert('تم الحفظ');
+  }
+  async function clearMark() {
+    document.getElementById('markBox').value = '';
+    await saveMark();
+  }
+  async function gradeEssay(ansId, attemptId) {
+    const score = document.getElementById('ans_' + ansId).value;
+    const fd = new FormData(); fd.append('answer_id', ansId); fd.append('score', score);
+    const r = await fetch(`/admin/student/${currentUser}/grade_essay`, {method:'POST', body: fd});
+    const j = await r.json();
+    if (j.success) {
+      document.getElementById('tot_' + attemptId).value = j.new_total;
+    }
+  }
+  async function overrideScore(attemptId) {
+    const val = document.getElementById('tot_' + attemptId).value;
+    const fd = new FormData(); fd.append('attempt_id', attemptId); fd.append('total_score', val);
+    await fetch(`/admin/student/${currentUser}/override_score`, {method:'POST', body: fd});
+    alert('تم تحديث الدرجة');
+  }
+</script>
+{% endblock %}

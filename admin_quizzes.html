@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}الاختبارات — المعلم{% endblock %}
+{% block content %}
+<main class="card" style="width: min(880px, calc(100% - 32px));">
+  <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+    <h2>📝 إدارة الاختبارات</h2>
+    <a href="{{ url_for('admin_list') }}" style="color:var(--primary); font-weight:600; text-decoration:none;">← رجوع للوحة</a>
+  </div>
+  <p class="sub">أنشئ اختبارات جديدة أو أضف/عدّل أسئلتها.</p>
+
+  <form method="post" style="display:grid; grid-template-columns: 1fr auto auto; gap:10px; align-items:end; margin-bottom:20px;">
+    <div class="field" style="margin:0;">
+      <label>عنوان الاختبار</label>
+      <input type="text" name="title" required placeholder="مثال: اختبار الوحدة الأولى">
+    </div>
+    <label style="display:flex; align-items:center; gap:6px; color:var(--text-muted);">
+      <input type="checkbox" name="is_mandatory"> إلزامي
+    </label>
+    <button class="btn" style="padding:12px 18px;">➕ إنشاء</button>
+  </form>
+
+  <div style="overflow-x:auto;">
+    <table style="width:100%; border-collapse:collapse; font-size:.9rem;">
+      <thead>
+        <tr style="color:var(--text-muted); text-align:right; border-bottom:1px solid var(--border);">
+          <th style="padding:10px;">#</th>
+          <th style="padding:10px;">العنوان</th>
+          <th style="padding:10px;">النوع</th>
+          <th style="padding:10px;">الأسئلة</th>
+          <th style="padding:10px;">المحاولات</th>
+          <th style="padding:10px;">الإجراءات</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for q in quizzes %}
+        <tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:10px;">{{ q['id'] }}</td>
+          <td style="padding:10px; font-weight:600;">{{ q['title'] }}</td>
+          <td style="padding:10px;">
+            <button onclick="toggleMand({{ q['id'] }}, this)"
+              style="padding:4px 10px; border-radius:99px; border:1px solid {% if q['is_mandatory'] %}rgba(239,68,68,.4){% else %}var(--border){% endif %}; background:{% if q['is_mandatory'] %}rgba(239,68,68,.12){% else %}transparent{% endif %}; color:{% if q['is_mandatory'] %}#fda4a4{% else %}var(--text-muted){% endif %}; cursor:pointer; font-size:.75rem;">
+              {% if q['is_mandatory'] %}إلزامي{% else %}اختياري{% endif %}
+            </button>
+          </td>
+          <td style="padding:10px;">{{ q['q_count'] }}</td>
+          <td style="padding:10px;">{{ q['attempts'] }}</td>
+          <td style="padding:10px; display:flex; gap:6px;">
+            <a href="{{ url_for('admin_quiz_builder', qid=q['id']) }}" style="padding:5px 10px; background:var(--blue); color:#fff; border-radius:8px; text-decoration:none; font-size:.8rem;">✏️ تعديل</a>
+            <form method="post" action="{{ url_for('admin_quiz_delete', qid=q['id']) }}" onsubmit="return confirm('حذف الاختبار وكل نتائجه؟');" style="display:inline;">
+              <button style="padding:5px 10px; background:var(--error); color:#fff; border:none; border-radius:8px; cursor:pointer; font-size:.8rem;">🗑️ حذف</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" style="padding:24px; text-align:center; color:var(--text-muted);">لا توجد اختبارات بعد</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</main>
+<script>
+  async function toggleMand(id, btn) {
+    const res = await fetch(`/admin/quizzes/${id}/toggle_mandatory`, {method:'POST'});
+    if (res.ok) location.reload();
+  }
+</script>
+{% endblock %}

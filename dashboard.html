@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+{% block title %}لوحتي — {{ user['name'] }}{% endblock %}
+{% block content %}
+<style>
+  /* ─── Dashboard Layout ─── */
+  .dashboard {
+    width: min(900px, calc(100% - 24px));
+    margin: 0 auto 48px;
+    animation: fadeUp .5s ease both;
+  }
+
+  /* ─── Welcome Banner ─── */
+  .welcome-banner {
+    background: linear-gradient(135deg, #0f1e3a 0%, #1a1040 100%);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 28px 28px 24px;
+    margin-bottom: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .welcome-banner::before {
+    content: '';
+    position: absolute; top: -60px; left: -60px;
+    width: 200px; height: 200px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,122,41,.18), transparent 70%);
+  }
+  .welcome-banner::after {
+    content: '';
+    position: absolute; bottom: -40px; right: -40px;
+    width: 160px; height: 160px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(59,130,246,.15), transparent 70%);
+  }
+  .welcome-banner .greeting {
+    font-size: 1.5rem; font-weight: 800;
+    background: linear-gradient(90deg, var(--primary), #ffb347);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text; margin-bottom: 6px;
+  }
+  .welcome-banner .sub-greeting { color: var(--text-muted); font-size: .9rem; }
+  .welcome-banner .badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(34,197,94,.12); border: 1px solid rgba(34,197,94,.35);
+    color: var(--success); font-size: .8rem; font-weight: 600;
+    padding: 4px 12px; border-radius: 99px; margin-top: 10px;
+  }
+  .welcome-banner .top-row { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 15px; }
+  .logout-btn {
+    display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0;position: relative;z-index: 10;
+    padding: 8px 14px; border-radius: 15px; font-size: .85rem; font-weight: 600;
+    background: rgba(239,68,68,.1); border: 1px solid lab(53.23% 80.11 67.22 / 0.322);
+    color: #fda4a4; text-decoration: none; transition: all .2s;
+  }
+  .logout-btn:hover { background: hwb(0 11% 34% / 0.2); color: hwb(39 5% 9%); }
+
+  /* ─── Already attended alert ─── */
+  .already-alert {
+    background: rgba(59,130,246,.1); border: 1px solid rgba(59,130,246,.35);
+    border-radius: 14px; padding: 14px 18px; margin-bottom: 20px;
+    display: flex; align-items: center; gap: 12px; font-size: .9rem; color: #93c5fd;
+  }
+
+  /* ─── Stats Cards ─── */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 14px; margin-bottom: 20px;
+  }
+  .stat-card {
+    background: #0d1526; border: 1px solid var(--border);
+    border-radius: 16px; padding: 18px 16px; text-align: center;
+    transition: transform .2s, box-shadow .2s;
+  }
+  .stat-card:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(0,0,0,.35); }
+  .stat-card .stat-icon { font-size: 1.8rem; margin-bottom: 8px; }
+  .stat-card .stat-value {
+    font-size: 2.2rem; font-weight: 900;
+    background: linear-gradient(135deg, var(--primary), #ffb347);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .stat-card .stat-label { color: var(--text-muted); font-size: .75rem; margin-top: 4px; }
+
+  /* ─── Section Cards ─── */
+  .section-card {
+    background: #0d1526; border: 1px solid var(--border);
+    border-radius: 16px; padding: 20px; margin-bottom: 18px;
+  }
+  .section-title {
+    font-size: .95rem; font-weight: 700; margin-bottom: 14px;
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  /* ─── Attendance Log Table ─── */
+  .log-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+  .log-table thead tr { color: var(--text-muted); text-align: right; }
+  .log-table th, .log-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  .log-table tbody tr:last-child td { border-bottom: none; }
+  .log-table tbody tr:hover { background: rgba(255,255,255,.03); }
+  .log-badge {
+    display: inline-block; padding: 3px 10px; border-radius: 99px; font-size: .75rem;
+    background: rgba(34,197,94,.12); border: 1px solid rgba(34,197,94,.3); color: var(--success);
+  }
+
+  /* ─── Download Center ─── */
+  .materials-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px;
+  }
+  .material-card {
+    background: #0b1220; border: 1px solid var(--border); border-radius: 14px;
+    padding: 18px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px;
+    transition: border-color .2s, transform .2s;
+  }
+  .material-card:hover { border-color: var(--primary); transform: translateY(-2px); }
+  .material-icon { font-size: 2.4rem; }
+  .material-name { font-size: .88rem; font-weight: 600; word-break: break-all; color: var(--text); }
+  .material-card a {
+    display: block; width: 100%; padding: 8px;
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: #fff; font-size: .82rem; font-weight: 700; border-radius: 10px;
+    text-decoration: none; transition: filter .2s;
+  }
+  .material-card a:hover { filter: brightness(1.1); }
+  .no-materials { text-align: center; color: var(--text-muted); padding: 24px 0; font-size: .9rem; }
+</style>
+
+<div class="dashboard">
+
+  {# ─── Already attended notification ─── #}
+  {% if already %}
+  <div class="already-alert">
+    <span style="font-size:1.4rem;">ℹ️</span>
+    <div>لقد سجّلت حضورك بالفعل اليوم. يمكنك تصفح لوحتك وتحميل الملازم.</div>
+  </div>
+  {% endif %}
+
+  {# ─── Welcome Banner ─── #}
+  <div class="welcome-banner">
+    <div class="top-row">
+      <div>
+        <div class="greeting">أهلاً بك، {{ user['name'] }} 👋</div>
+        <div class="sub-greeting">{{ user['email'] }} • عضو منذ {{ user['created_at'][:10] }}</div>
+        <div class="badge">
+          <span style="width:7px;height:7px;border-radius:50%;background:var(--success);animation:pulse 1.5s infinite;"></span>
+          متصل بالشبكة المحلية
+        </div>
+      </div>
+      <a href="{{ url_for('logout') }}" class="logout-btn">🚪 تسجيل خروج</a>
+    </div>
+  </div>
+
+  {# ─── Stats Cards ─── #}
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-icon">📅</div>
+      <div class="stat-value">{{ total_attended }}</div>
+      <div class="stat-label">إجمالي مرات الحضور</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">🕐</div>
+      <div class="stat-value" style="font-size:1rem; -webkit-text-fill-color: var(--text-muted); background: none;">
+        {{ last_attendance[:10] if last_attendance != '—' else '—' }}
+      </div>
+      <div class="stat-label">آخر حضور مسجّل</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">📚</div>
+      <div class="stat-value">{{ materials|length }}</div>
+      <div class="stat-label">ملزمة متاحة للتحميل</div>
+    </div>
+  </div>
+
+  {# ─── Attendance Log ─── #}
+  <div class="section-card">
+    <div class="section-title">📋 سجل حضورك</div>
+    {% if logs %}
+    <div style="overflow-x:auto;">
+      <table class="log-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>التاريخ</th>
+            <th>الوقت</th>
+            <th>الحالة</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for i, log in enumerate(logs) %}
+          <tr>
+            <td style="color:var(--text-muted);">{{ total_attended - i }}</td>
+            <td dir="ltr">{{ log['submission_time'][:10] }}</td>
+            <td dir="ltr" style="color:var(--text-muted);">{{ log['submission_time'][11:16] }}</td>
+            <td><span class="log-badge">✅ حضر</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div style="text-align:center; color:var(--text-muted); padding:20px 0;">
+      لم يتم تسجيل أي حضور بعد.
+    </div>
+    {% endif %}
+  </div>
+
+  {# ─── Quizzes ─── #}
+  <div class="section-card">
+    <div class="section-title">📝 الاختبارات المتاحة</div>
+    {% if quizzes and quizzes|length > 0 %}
+      <div class="materials-grid">
+        {% for q in quizzes %}
+        <div class="material-card" style="align-items: stretch; text-align: right;">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+            <div class="material-name" style="text-align:right;">{{ q['title'] }}</div>
+            {% if q['is_mandatory'] %}
+              <span class="log-badge" style="background: rgba(239,68,68,.12); border-color: rgba(239,68,68,.35); color:#fda4a4;">إلزامي</span>
+            {% else %}
+              <span class="log-badge">اختياري</span>
+            {% endif %}
+          </div>
+          <div style="color:var(--text-muted); font-size:.8rem;">
+            {{ q['q_count'] }} سؤال
+            {% if q['my_submitted_at'] %} • تم الإرسال {{ q['my_submitted_at'][:10] }}{% endif %}
+          </div>
+          {% if q['my_submitted_at'] %}
+            <a href="{{ url_for('student_quiz_result', qid=q['id']) }}" style="background: linear-gradient(135deg, var(--blue), #1e40af);">درجتك: {{ q['my_score'] }} — عرض</a>
+          {% else %}
+            <a href="{{ url_for('student_quiz', qid=q['id']) }}">ابدأ الاختبار</a>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="no-materials">
+        <div style="font-size:2rem; margin-bottom:8px;">📝</div>
+        لا توجد اختبارات متاحة حالياً
+      </div>
+    {% endif %}
+  </div>
+
+  {# ─── Download Center ─── #}
+  <div class="section-card">
+    <div class="section-title">⬇️ مركز الملازم والمواد الدراسية</div>
+    {% if materials %}
+    <div class="materials-grid">
+      {% for fname in materials %}
+      <div class="material-card">
+        <div class="material-icon">📄</div>
+        <div class="material-name">{{ fname }}</div>
+        <a href="{{ url_for('static', filename='downloads/' + fname) }}" download="{{ fname }}">
+          ⬇️ تحميل
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="no-materials">
+      <div style="font-size:2rem; margin-bottom:8px;">📭</div>
+      لا توجد ملازم متاحة حالياً — تابع قناة المعلم للتحديثات
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<style>
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .4; }
+  }
+</style>
+{% endblock %}

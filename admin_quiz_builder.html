@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}تعديل الاختبار — {{ quiz['title'] }}{% endblock %}
+{% block content %}
+<main class="card" style="width: min(880px, calc(100% - 32px));">
+  <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+    <h2>✏️ {{ quiz['title'] }}</h2>
+    <a href="{{ url_for('admin_quizzes') }}" style="color:var(--primary); font-weight:600; text-decoration:none;">← كل الاختبارات</a>
+  </div>
+  <p class="sub">{{ questions|length }} سؤال — {% if quiz['is_mandatory'] %}إلزامي{% else %}اختياري{% endif %}</p>
+
+  <h3 style="margin:14px 0 10px;">أضف سؤالاً جديداً</h3>
+  <form method="post" style="background:#0d1526; padding:16px; border-radius:12px; border:1px solid var(--border);">
+    <div class="field">
+      <label>نوع السؤال</label>
+      <select name="type" id="qtype" onchange="toggleOpts()" style="width:100%; padding:12px; background:#0d1526; color:var(--text); border:1.5px solid var(--border); border-radius:12px;">
+        <option value="MCQ">اختيار من متعدد (تصحيح تلقائي)</option>
+        <option value="Essay">مقالي (تصحيح يدوي — 0 نقطة افتراضياً)</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>نص السؤال</label>
+      <textarea name="question_text" required rows="2" style="width:100%; padding:12px; background:#0d1526; color:var(--text); border:1.5px solid var(--border); border-radius:12px;"></textarea>
+    </div>
+    <div class="field">
+      <label>الدرجة</label>
+      <input type="number" name="points" value="1" min="0" max="100">
+    </div>
+    <div id="mcqBox">
+      <div class="field"><label>الخيار 1</label><input type="text" name="opt1"></div>
+      <div class="field"><label>الخيار 2</label><input type="text" name="opt2"></div>
+      <div class="field"><label>الخيار 3 (اختياري)</label><input type="text" name="opt3"></div>
+      <div class="field"><label>الخيار 4 (اختياري)</label><input type="text" name="opt4"></div>
+      <div class="field"><label>الإجابة الصحيحة (اكتبها كما هي بالحرف)</label><input type="text" name="correct"></div>
+    </div>
+    <button class="btn">➕ إضافة السؤال</button>
+  </form>
+
+  <h3 style="margin:22px 0 10px;">الأسئلة الحالية</h3>
+  {% for q in questions %}
+    <div style="background:#0d1526; border:1px solid var(--border); border-radius:12px; padding:14px; margin-bottom:12px;">
+      <div style="display:flex; justify-content:space-between; gap:10px; align-items:flex-start;">
+        <div>
+          <div style="font-weight:700;">{{ loop.index }}. {{ q['question_text'] }}</div>
+          <div style="color:var(--text-muted); font-size:.8rem; margin-top:4px;">
+            {{ q['type'] }} • {{ q['points'] }} نقطة
+          </div>
+          {% if q['type'] == 'MCQ' %}
+            <ul style="margin:8px 0 0 18px; color:var(--text-muted); font-size:.85rem;">
+              {% for o in q['options'] %}
+                <li style="{% if o == q['correct_answer'] %}color: var(--success); font-weight:600;{% endif %}">
+                  {{ o }} {% if o == q['correct_answer'] %}✓{% endif %}
+                </li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+        </div>
+        <form method="post" action="{{ url_for('admin_question_delete', qid=q['id']) }}" onsubmit="return confirm('حذف السؤال؟');">
+          <button style="padding:6px 10px; background:var(--error); color:#fff; border:none; border-radius:8px; cursor:pointer;">🗑️</button>
+        </form>
+      </div>
+    </div>
+  {% else %}
+    <div style="color:var(--text-muted); text-align:center; padding:20px;">لا توجد أسئلة بعد</div>
+  {% endfor %}
+</main>
+<script>
+  function toggleOpts() {
+    const t = document.getElementById('qtype').value;
+    document.getElementById('mcqBox').style.display = (t === 'MCQ') ? 'block' : 'none';
+  }
+  toggleOpts();
+</script>
+{% endblock %}

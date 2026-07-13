@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}نتيجة — {{ quiz['title'] }}{% endblock %}
+{% block content %}
+<main class="card" style="width: min(560px, calc(100% - 32px)); text-align:center;">
+  <div class="status">
+    <div class="icon icon-success">✓</div>
+    <h2>{{ quiz['title'] }}</h2>
+    <p>تم استلام إجاباتك.</p>
+    <div style="font-size:3rem; font-weight:900; background: linear-gradient(135deg, var(--primary), #ffb347); -webkit-background-clip:text; -webkit-text-fill-color:transparent; margin:16px 0;">
+      {{ attempt['total_score'] }} / {{ max_score }}
+    </div>
+    <p style="color:var(--text-muted); font-size:.85rem;">
+      الدرجة الظاهرة تشمل تصحيح الاختيار من متعدد فقط.
+      الأسئلة المقالية يصححها المعلم لاحقاً.
+    </p>
+    <a href="{{ url_for('dashboard') }}" class="btn" style="display:inline-block; margin-top:18px; text-decoration:none; text-align:center;">🏠 رجوع للوحة</a>
+  </div>
+</main>
+{% endblock %}
